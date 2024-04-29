@@ -1,42 +1,199 @@
-import cv2 as cv
-import os
-import torchvision.transforms as transforms
+import math
+import cv2
+import numpy as np
 
-#Code Repository: https://github.com/thomassabbe/drone-object-detection-using-haar-cascades/blob/main/dronevision_real/src/dronevision_library.py
-
-def create_transformation(path_to_importfolder, path_to_exportfolder, start_number, repeat_variable):
+#https://stackoverflow.com/questions/16702966/rotate-image-and-crop-out-black-borders
+def rotate_image(image, angle):
     """
-    Main definition to create the transformations and store them.
-
-    Keyword arguments:
-    path_to_importfolder -- path to the import folder
-    path_to_exportfolder -- path to the export folder
-    start_number -- start number for writing images to the export folder
-    repeat_variable -- amount of times an augment needs to be created from the same image
-
-    Return variables:
-    none
+    Rotates an OpenCV 2 / NumPy image about it's centre by the given angle
+    (in degrees). The returned image will be large enough to hold the entire
+    new image, with a black background
     """
-    # Create a collection of transformations. The choices which tranformations are arbitrary.
-    my_transforms = transforms.Compose([
-        transforms.Resize((500, 500)),
-        transforms.RandomCrop((500, 500)),
-        transforms.ColorJitter(brightness=0.5, hue=0.5, saturation=0.5),
-        transforms.RandomRotation(degrees=45),
-        transforms.RandomGrayscale(p=0.2),
-        transforms.Normalize(mean=[0.0, 0.0, 0.0], std=[1.0, 1.0, 1.0])])
 
-    # Create a dataset from an image-folder. This image-folder should contain all the sample-images you want to be augmented.
-    val_set = datasets.ImageFolder(root=path_to_importfolder, transform=my_transforms)
+    # Get the image size
+    # No that's not an error - NumPy stores image matricies backwards
+    image_size = (image.shape[1], image.shape[0])
+    image_center = tuple(np.array(image_size) / 2)
 
-    # Set a img_num. Default 0, but can be different if you want to add more images upon existing ones.
-    img_num = start_number
-    # For loop which will repeat 20 times per image in the dataset, explained above.
-    # Ex.: 101 sample pictures will result into 2020 pictures.
-    for _ in range(repeat_variable):
-        for img, label in val_set:
-            save_image(img, path_to_exportfolder + str(img_num) + '.jpg')
-            img_num += 1
+    # Convert the OpenCV 3x2 rotation matrix to 3x3
+    rot_mat = np.vstack(
+        [cv2.getRotationMatrix2D(image_center, angle, 1.0), [0, 0, 1]]
+    )
+
+    rot_mat_notranslate = np.matrix(rot_mat[0:2, 0:2])
+
+    # Shorthand for below calcs
+    image_w2 = image_size[0] * 0.5
+    image_h2 = image_size[1] * 0.5
+
+    # Obtain the rotated coordinates of the image corners
+    rotated_coords = [
+        (np.array([-image_w2,  image_h2]) * rot_mat_notranslate).A[0],
+        (np.array([ image_w2,  image_h2]) * rot_mat_notranslate).A[0],
+        (np.array([-image_w2, -image_h2]) * rot_mat_notranslate).A[0],
+        (np.array([ image_w2, -image_h2]) * rot_mat_notranslate).A[0]
+    ]
+
+    # Find the size of the new image
+    x_coords = [pt[0] for pt in rotated_coords]
+    x_pos = [x for x in x_coords if x > 0]
+    x_neg = [x for x in x_coords if x < 0]
+
+    y_coords = [pt[1] for pt in rotated_coords]
+    y_pos = [y for y in y_coords if y > 0]
+    y_neg = [y for y in y_coords if y < 0]
+
+    right_bound = max(x_pos)
+    left_bound = min(x_neg)
+    top_bound = max(y_pos)
+    bot_bound = min(y_neg)
+
+    new_w = int(abs(right_bound - left_bound))
+    new_h = int(abs(top_bound - bot_bound))
+
+    # We require a translation matrix to keep the image centred
+    trans_mat = np.matrix([
+        [1, 0, int(new_w * 0.5 - image_w2)],
+        [0, 1, int(new_h * 0.5 - image_h2)],
+        [0, 0, 1]
+    ])
+
+    # Compute the tranform for the combined rotation and translation
+    affine_mat = (np.matrix(trans_mat) * np.matrix(rot_mat))[0:2, :]
+
+    # Apply the transform
+    result = cv2.warpAffine(
+        image,
+        affine_mat,
+        (new_w, new_h),
+        flags=cv2.INTER_LINEAR
+    )
+
+    return result
+
+
+def largest_rotated_rect(w, h, angle):
+    """
+    Given a rectangle of size wxh that has been rotated by 'angle' (in
+    radians), computes the width and height of the largest possible
+    axis-aligned rectangle within the rotated rectangle.
+
+    Original JS code by 'Andri' and Magnus Hoff from Stack Overflow
+
+    Converted to Python by Aaron Snoswell
+    """
+
+    quadrant = int(math.floor(angle / (math.pi / 2))) & 3
+    sign_alpha = angle if ((quadrant & 1) == 0) else math.pi - angle
+    alpha = (sign_alpha % math.pi + math.pi) % math.pi
+
+    bb_w = w * math.cos(alpha) + h * math.sin(alpha)
+    bb_h = w * math.sin(alpha) + h * math.cos(alpha)
+
+    gamma = math.atan2(bb_w, bb_w) if (w < h) else math.atan2(bb_w, bb_w)
+
+    delta = math.pi - alpha - gamma
+
+    length = h if (w < h) else w
+
+    d = length * math.cos(alpha)
+    a = d * math.sin(alpha) / math.sin(delta)
+
+    y = a * math.cos(gamma)
+    x = y * math.tan(gamma)
+
+    return (
+        bb_w - 2 * x,
+        bb_h - 2 * y
+    )
+
+
+def crop_around_center(image, width, height):
+    """
+    Given a NumPy / OpenCV 2 image, crops it to the given width and height,
+    around it's centre point
+    """
+
+    image_size = (image.shape[1], image.shape[0])
+    image_center = (int(image_size[0] * 0.5), int(image_size[1] * 0.5))
+
+    if(width > image_size[0]):
+        width = image_size[0]
+
+    if(height > image_size[1]):
+        height = image_size[1]
+
+    x1 = int(image_center[0] - width * 0.5)
+    x2 = int(image_center[0] + width * 0.5)
+    y1 = int(image_center[1] - height * 0.5)
+    y2 = int(image_center[1] + height * 0.5)
+
+    return image[y1:y2, x1:x2]
+
+
+def demo():
+    """
+    Demos the largest_rotated_rect function
+    """
+
+    image = cv2.imread("etiketten/2.png")
+    image_height, image_width = image.shape[0:2]
+
+    cv2.imshow("Original Image", image)
+
+    print('Press [enter] to begin the demo')
+    print ('Press [q] or Escape to quit')
+
+    key = cv2.waitKey(0)
+    if key == ord("q") or key == 27:
+        exit()
+
+    for i in np.arange(0, 360, 0.5):
+        image_orig = np.copy(image)
+        image_rotated = rotate_image(image, i)
+        image_rotated_cropped = crop_around_center(
+            image_rotated,
+            *largest_rotated_rect(
+                image_width,
+                image_height,
+                math.radians(i)
+            )
+        )
+
+        key = cv2.waitKey(2)
+        if(key == ord("q") or key == 27):
+            exit()
+
+        cv2.imshow("Original Image", image_orig)
+        cv2.imshow("Rotated Image", image_rotated)
+        cv2.imshow("Cropped Image", image_rotated_cropped)
+
+
+def horizontal_flip(image, x, y, width, height):
+   flipped_image = cv2.flip(image, 1)
+   image_width = image.shape[1]
+   new_x = image_width - (x + width)
+   return flipped_image, new_x, y, width, height
+
+
+def random_lighting(image, brightness_range=(-100, 100), contrast_range=(0.2, 1.5)):
+   image = image.astype(np.float32)
+   brightness = np.random.uniform(brightness_range[0], brightness_range[1])
+   image += brightness
+   contrast = np.random.uniform(contrast_range[0], contrast_range[1])
+   image *= contrast
+   image = np.clip(image, 0, 255)
+   image = image.astype(np.uint8)
+   return image
+
+
+img = cv2.imread('etiketten/1.png')
+new = random_lighting(img)
+cv2.imshow('Old image', img)
+cv2.imshow('Adjusted image', new)
+cv2.waitKey(0)
+
+
 
 
 

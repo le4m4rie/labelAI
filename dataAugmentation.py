@@ -1,6 +1,9 @@
 import math
 import cv2
 import numpy as np
+import random
+import os
+import re
 
 #https://stackoverflow.com/questions/16702966/rotate-image-and-crop-out-black-borders
 def rotate_image(image, angle):
@@ -169,11 +172,11 @@ def demo():
         cv2.imshow("Cropped Image", image_rotated_cropped)
 
 
-def horizontal_flip(image, x, y, width, height):
+def horizontal_flip(image, x, width):
    flipped_image = cv2.flip(image, 1)
    image_width = image.shape[1]
    new_x = image_width - (x + width)
-   return flipped_image, new_x, y, width, height
+   return flipped_image, new_x
 
 
 def random_lighting(image, brightness_range=(-100, 100), contrast_range=(0.2, 1.5)):
@@ -187,12 +190,45 @@ def random_lighting(image, brightness_range=(-100, 100), contrast_range=(0.2, 1.
    return image
 
 
-img = cv2.imread('etiketten/1.png')
-new = random_lighting(img)
-cv2.imshow('Old image', img)
-cv2.imshow('Adjusted image', new)
-cv2.waitKey(0)
+def save_image(image, output_dir, image_name, append):
+   os.makedirs(output_dir, exist_ok=True)
+   image_name = image_name + append
+   path = os.path.join(output_dir, image_name)
+   output_path = re.sub(r'positive_resized/', '', path)
+   cv2.imwrite(output_path, image)
+   return output_path
 
+
+def transform_images(annotation_file, transforms_file):
+    with open(annotation_file, 'r') as file:
+        lines = file.readlines()
+
+    with open(transforms_file, 'w') as output:
+        for line in lines:
+            values = line.strip().split()
+            image_path = values[0]
+            x = values[2]
+            y = values[3]
+            width = values[4]
+            height = values[5]
+            x = int(x)
+            width = int(width)
+            image = cv2.imread(image_path)
+
+            rotated_image = rotate_image(image, random.uniform(10, 30))
+            flipped_image, new_x = horizontal_flip(image, x, width)
+            lit_image = random_lighting(image)
+            
+            rotated_path = save_image(rotated_image, 'transformed_images', image_path, 'rotated')
+            flipped_path = save_image(flipped_image, 'transformed_images', image_path, 'flipped')
+            lit_path = save_image(lit_image, 'transformed_images', image_path, 'lit')
+    
+            output.write(f"{rotated_path} {x} {y} {width} {height}\n")
+            output.write(f"{flipped_path} {new_x} {y} {width} {height}\n")
+            output.write(f"{lit_path} {x} {y} {width} {height}\n")
+
+
+transform_images('training/train/train_pos.txt', 'transforms.txt')
 
 
 

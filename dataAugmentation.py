@@ -179,7 +179,7 @@ def horizontal_flip(image, x, width):
    return flipped_image, new_x
 
 
-def random_lighting(image, brightness_range=(-100, 100), contrast_range=(0.2, 1.5)):
+def random_lighting(image, brightness_range=(-50, 80), contrast_range=(0.2, 1.5)):
    image = image.astype(np.float32)
    brightness = np.random.uniform(brightness_range[0], brightness_range[1])
    image += brightness
@@ -192,11 +192,12 @@ def random_lighting(image, brightness_range=(-100, 100), contrast_range=(0.2, 1.
 
 def save_image(image, output_dir, image_name, append):
    os.makedirs(output_dir, exist_ok=True)
-   image_name = image_name + append
-   path = os.path.join(output_dir, image_name)
-   output_path = re.sub(r'positive_resized/', '', path)
-   cv2.imwrite(output_path, image)
-   return output_path
+   removed_ending = re.sub(r'\.jpe?g$', '', image_name, flags=re.IGNORECASE)
+   removed_old_path = re.sub(r'positive_resized/', '', removed_ending)
+   new_name = removed_old_path + append + '.jpg'
+   final_new_path = os.path.join(output_dir, new_name)
+   cv2.imwrite(final_new_path, image)
+   return final_new_path
 
 
 def transform_images(annotation_file, transforms_file):

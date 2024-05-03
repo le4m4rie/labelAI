@@ -40,7 +40,7 @@ Basically, the scale factor is used to create your scale pyramid. More explanati
 1.05 is a good possible value for this, which means you use a small step for resizing, i.e. reduce the size by 5%, you increase the chance of a matching size with the model for detection is found. This also means that the algorithm works slower since it is more thorough. You may increase it to as much as 1.4 for faster detection, with the risk of missing some faces altogether.
 
 minNeighbors – Parameter specifying how many neighbors each candidate rectangle should have to retain it.
-This parameter will affect the quality of the detected faces. Higher value results in fewer detections but with higher quality. 3~6 is a good value for it.
+This parameter will affect the quality of the detected faces. Higher value results in fewer detections but with higher quality. 3~6 is a good value for it. minNeighbours (in the detectMultiScale call) is the amount of detections in about the same place nessecary to count as a valid detection
 
 minSize – Minimum possible object size. Objects smaller than that are ignored.
 This parameter determines how small size you want to detect. You decide it! Usually, [30, 30] is a good start for face detection.

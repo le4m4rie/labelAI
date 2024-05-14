@@ -62,4 +62,5 @@ TESTING
 -----------------------------------------------------------------------------------------------
 TRAINING PARAMETERS
 
-30.04.24: opencv_traincascade.exe -data cascade/ -vec pos.vec -bg neg.txt -w 50 -h 30 -numPos 1600 -numNeg 1600 -numStages 10 -maxFalseAlarmRate 0.3
+30.04.24: opencv_traincascade.exe -data cascade/ -vec pos.vec -bg neg.txt -w 50 -h 30 -numPos 1600 -numNeg 1600 -numStages 10 -maxFalseAlarmRate 0.3 -> abgebrochen weil flipped Images kontraproduktiv
+14.05.24: opencv_traincascade.exe -data cascade/ -vec pos.vec -bg neg.txt -w 50 -h 30 -numPos 1600 -numNeg 1600 -numStages 10 -maxFalseAlarmRate 0.3 mit leichter Rotation und Lighting und Contrast changes

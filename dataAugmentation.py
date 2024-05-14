@@ -173,13 +173,36 @@ def demo():
 
 
 def horizontal_flip(image, x, width):
+   """
+   Flips image horizontally and changes bounding box accordingly.
+
+   Keyword arguments:
+   image -- openCV image object
+   x -- the x-coordinate of the bbox
+   width -- the width of the bbox
+
+   Return values:
+   flipped_image -- the flipped image
+   new_x -- new x-ccordinate of the bbox
+   """
    flipped_image = cv2.flip(image, 1)
    image_width = image.shape[1]
    new_x = image_width - (x + width)
    return flipped_image, new_x
 
 
-def random_lighting(image, brightness_range=(-50, 80), contrast_range=(0.2, 1.5)):
+def random_lighting(image, brightness_range=(-10, 50), contrast_range=(0.2, 1.5)):
+   """
+   Changes brightness and contrast of an image within certain ranges.
+
+   Keyword arguments:
+   image -- openCV image object
+   brigthness_range -- range of random brightness level (DEFAULT -30, 80)
+   contrast_range -- range of random contrast level (DEFAULT 0.2, 1.5)
+
+   Return variables:
+   image -- openCV image object with adjusted brightness and contrast
+   """
    image = image.astype(np.float32)
    brightness = np.random.uniform(brightness_range[0], brightness_range[1])
    image += brightness
@@ -191,6 +214,18 @@ def random_lighting(image, brightness_range=(-50, 80), contrast_range=(0.2, 1.5)
 
 
 def save_image(image, output_dir, image_name, append):
+   """
+   Function to make up new image name and save image to given folder.
+
+   Keyword arguments:
+   image -- openCV image object
+   output_dir -- path of output folder
+   image_name -- original image name
+   append -- appendix for new image name
+
+   Return variables:
+   final_new_path -- path of the image
+   """
    os.makedirs(output_dir, exist_ok=True)
    removed_ending = re.sub(r'\.jpe?g$', '', image_name, flags=re.IGNORECASE)
    removed_old_path = re.sub(r'positive_resized/', '', removed_ending)
@@ -201,6 +236,16 @@ def save_image(image, output_dir, image_name, append):
 
 
 def transform_images(annotation_file, transforms_file):
+    """
+    Function to perform transformations to already annotated images.
+
+    Keyword arguments:
+    annotation_file -- .txt file of annotations
+    transforms_file -- .txt file where transformed image paths and bboxes get written to
+
+    Return values:
+    none
+    """
     with open(annotation_file, 'r') as file:
         lines = file.readlines()
 
@@ -216,21 +261,19 @@ def transform_images(annotation_file, transforms_file):
             width = int(width)
             image = cv2.imread(image_path)
 
-            rotated_image = rotate_image(image, random.uniform(10, 30))
-            flipped_image, new_x = horizontal_flip(image, x, width)
+            rotated_image = rotate_image(image, random.uniform(5, 15))
             lit_image = random_lighting(image)
             
+            normal_path = save_image(image, 'transformed_images', image_path, 'normal')
             rotated_path = save_image(rotated_image, 'transformed_images', image_path, 'rotated')
-            flipped_path = save_image(flipped_image, 'transformed_images', image_path, 'flipped')
             lit_path = save_image(lit_image, 'transformed_images', image_path, 'lit')
-    
-            output.write(f"{rotated_path} {x} {y} {width} {height}\n")
-            output.write(f"{flipped_path} {new_x} {y} {width} {height}\n")
-            output.write(f"{lit_path} {x} {y} {width} {height}\n")
+
+            output.write(f"{normal_path} 1 {x} {y} {width} {height}\n")
+            output.write(f"{rotated_path} 1 {x} {y} {width} {height}\n")
+            output.write(f"{lit_path} 1 {x} {y} {width} {height}\n")
 
 
-transform_images('training/train/train_pos.txt', 'transforms.txt')
-
+transform_images('training/train/train_pos.txt', 'transformations.txt')
 
 
 

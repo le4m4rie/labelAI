@@ -61,5 +61,52 @@ class Detector:
       return objects, level_weights
 
 
+   def get_highest_confidence_object(self, img):
+      """
+      Out of all detected objects, only returns object with highest confidence.
+
+      Keyword arguments:
+      img -- openCV image object
+
+      Return variables:
+      object_with_highest_confidence -- bounding box with highest confidence score
+      """
+      objects, weights = self.detect_labels_with_weights(img)
+      max_index = np.argmax(weights)
+      object_with_highest_confidence = objects[max_index]
+      confidence = weights[max_index]
+      
+      return object_with_highest_confidence, confidence
+   
+
+   def show_highest_confidence_object(self, img):
+      """
+      Displays highest confidence box.
+
+      Keyword arguments:
+      img -- openCV image object
+
+      Return variables:
+      none
+      """
+      box , confidence = self.get_highest_confidence_object(img)
+      x = int(box[0])
+      y = int(box[1])
+      xmax = x + int(box[2])
+      ymax = y + int(box[3])
+      cv.rectangle(img, (x, y), (xmax, ymax), (0, 255, 255), 2)
+
+      confidence = round(confidence, 2)
+      text = str(confidence)
+
+      text_x = xmax 
+      text_y = ymax
+
+      cv.putText(img, text, (text_x, text_y), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 255), 2)
+      cv.imshow('final box', img)
+      cv.waitKey(0)
+
+
 detector = Detector()
-detector.show_objects_detected('etiketten/4.png')
+img = cv.imread('etiketten/4.png')
+detector.show_highest_confidence_object(img)

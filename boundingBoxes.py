@@ -4,45 +4,6 @@ from Detector import Detector
 import re
 
 
-# TESTING #############################################################
-def test_model(pos_test_file, neg_test_file):
-    """
-    Function to test the cascade model based on precision and recall.
-
-    Keyword arguments: 
-    pos_test_file: .txt file contatining positive images
-    neg_test_file: .txt file containing negative images
-
-    Return variables:
-    None
-    """
-    get_predictions(pos_test_file, 'preds.txt')
-    remove_brackets('preds.txt', 'preds_no_brackets.txt')
-    fp = get_FP(neg_test_file)
-    tp, fn = get_TP_FN(pos_test_file, 'preds_no_brackets.txt', 0.5)
-    precision, recall = calculate_precision_recall(tp, fp, fn)
-    print('Precision: ' + precision + ' and Recall: ' + recall)
-
-
-def calculate_precision_recall(tp, fp, fn):
-    """
-    Calculate precision and recall.
-
-    Keyword arguments:
-    tp -- true positive count
-    fp -- false positive count
-    fn -- false negative count
-
-    Return variables:
-    recall, precision
-    """
-    precision = tp / (tp + fp)
-
-    recall = tp / (tp + fn)
-
-    return precision, recall
-
-
 def calculate_iou(bbox1, bbox2):
    """
    Function to calculate Intersection Over Union of two bounding boxes.
@@ -122,6 +83,7 @@ def get_FP(neg_file):
 
     detector = Detector()
     with open(neg_file, 'r') as file:
+        total = len(file.readlines())
         for line in file:
             values = line.strip().split()
             img_path = values[0]
@@ -130,10 +92,10 @@ def get_FP(neg_file):
             if len(objects) > 0:
                 false_positive_count += 1
 
-    return false_positive_count
+    return false_positive_count, total
 
 
-def get_TP_FN(test_pos_file, predictions_file, threshold):
+def get_metrics(test_pos_file, predictions_file, threshold):
     """
     Function to calculate number of True Positive and False Negative predicitons.
 
@@ -147,6 +109,7 @@ def get_TP_FN(test_pos_file, predictions_file, threshold):
     false_negative_count -- FN (int) 
     """
     with open(test_pos_file, 'r') as file:
+        total = len(file.readlines())
         ground_truth = []
         for line in file:
             values = line.strip().split()
@@ -170,7 +133,7 @@ def get_TP_FN(test_pos_file, predictions_file, threshold):
         else:
             false_negative_count += 1
     
-    return true_positive_count, false_negative_count
+    return true_positive_count, false_negative_count, total
 
 
 def remove_brackets(predictions_file, new_file):
@@ -193,112 +156,27 @@ def remove_brackets(predictions_file, new_file):
         file.write(text_without_brackets)
 
 
-def non_max_suppression(boxes, scores, threshold):
+def get_all_metrics(test_neg, test_pos, preds, thresh):
     """
-    Perform non-maximum suppression to remove overlapping bounding boxes and return the box with the highest score.
+    Calculating FP, TP, FN.
 
     Keyword arguments:
-    boxes -- List of bounding box coordinates in the format (x, y, w, h).
-    scores -- List of confidence scores corresponding to each bounding box.
-    threshold -- Threshold value for deciding whether to keep overlapping boxes.
-
-    Return values:
-    best_box_index (int) -- Index of the bounding box with the highest confidence score after NMS.
-    """
-
-    sorted_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)
-
-    best_box_index = sorted_indices[0]  
-    max_score = scores[best_box_index]
-
-    while True:
-        max_index = sorted_indices.pop(0)
-
-
-        box = boxes[max_index]
-        overlapping_indices = []
-        for idx in sorted_indices:
-            iou = calculate_iou(box, boxes[idx])
-
-            if iou > threshold:
-                overlapping_indices.append(idx)
-
-
-        for idx in overlapping_indices:
-            sorted_indices.remove(idx)
-
-
-        if not sorted_indices:
-            break
-
-
-        next_box_index = sorted_indices[0]
-        next_box_score = scores[next_box_index]
-        if next_box_score > max_score:
-            best_box_index = next_box_index
-            max_score = next_box_score
-
-    return best_box_index
-
-# END OF TESTING ##################################################################
-
-# OTHER ###########################################################################
-
-def nms_before_and_after(img_path):
-    """
-    Show bounding boxes before and after NMS.
-
-    Keyword arguments:
-    img_path -- path to image
+    test_neg -- the negative test file
+    test_pos -- the positive test file
+    preds -- name of the txt file the predictions get saved to
+    thresh -- threshod for iou
 
     Return variables:
     none
     """
-    detector = Detector()
-    img = cv.imread(img_path, cv.IMREAD_GRAYSCALE)
-    detector.show_objects_detected(img_path)
-    boxes, scores = detector.detect_labels_with_weights(img)
-
-    box_idx = non_max_suppression(boxes, scores, 0.5)
-    final_box = boxes[box_idx]
-    x = int(final_box[0])
-    y = int(final_box[1])
-    xmax = x + int(final_box[2])
-    ymax = y + int(final_box[3])
-    cv.rectangle(img, (x, y), (xmax, ymax), (0, 255, 255), 2)
-    cv.imshow('final box', img)
-    cv.waitKey(0)
+    fp, totalfalse = get_FP(test_neg)
+    fp_percentage = fp/totalfalse
+    get_predictions(test_pos, preds)
+    remove_brackets(preds, 'preds_no_brackets.txt')
+    tp, fn, totaltrue = get_metrics(test_pos, 'preds_no_brackets.txt', thresh)
+    tp_percentage = tp/totaltrue
+    fn_percentage = fn/totaltrue
+    print(' FP: ' + str(fp_percentage) + ' TP: ' + str(tp_percentage) + ' FN: ' + str(fn_percentage))
 
 
-def print_boxes_and_weights(img_path):
-    """
-    Printing bounding boxes and according weights.
-    """
-    detector = Detector()
-    img = cv.imread(img_path, cv.IMREAD_GRAYSCALE)
-    boxes, weights = detector.detect_labels_with_weights(img)
-    print('BOXES: \n' + str(boxes) + '\n' + ' WEIGHTS: \n' + str(weights))
-
-
-def compare_nms_and_highest_confidence(img_path):
-    """
-    Checks if result from NMS is the same bounding box as the highest confidence bounding box.
-
-    Keyword arguments:
-    img_path -- path to image
-
-    Return variables:
-    none
-    """
-    detector = Detector()
-    img = cv.imread(img_path, cv.IMREAD_GRAYSCALE)
-    boxes, confidence = detector.detect_labels_with_weights(img)
-    nms_idx = non_max_suppression(boxes, confidence, 0.5)
-    max_idx = np.argmax(confidence)
-    if nms_idx == max_idx:
-        print('Same bounding box')
-    else:
-        print('Not same bounding box')
-
-
-# END OF OTHER ###################################################################
+get_all_metrics('training/test/test_neg.txt', 'training/test/test_pos_single_instances.txt', 'preds.txt', 0.5)

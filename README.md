@@ -60,7 +60,7 @@ If it is 4.8789e-05, it signifies that your cascade is overtrained and will not 
 TESTING
 
 -----------------------------------------------------------------------------------------------
-TRAINING PARAMETERS
+MODELS OVERVIEW
 
-30.04.24: opencv_traincascade.exe -data cascade/ -vec pos.vec -bg neg.txt -w 50 -h 30 -numPos 1600 -numNeg 1600 -numStages 10 -maxFalseAlarmRate 0.3 -> abgebrochen weil flipped Images kontraproduktiv
-14.05.24: opencv_traincascade.exe -data cascade/ -vec pos.vec -bg neg.txt -w 50 -h 30 -numPos 1600 -numNeg 1600 -numStages 10 -maxFalseAlarmRate 0.3 mit leichter Rotation und Lighting und Contrast changes
+cascade190424: first model trained with all data available after splitting for 6 stages only with -maxFalseAlarmRate 0.3
+cascade150524, cascade160524: opencv_traincascade.exe -data cascade/ -vec pos.vec -bg neg.txt -w 50 -h 30 -numPos 1600 -numNeg 1600 -numStages 10 bzw. 12 -maxFalseAlarmRate 0.3 mit leichter Rotation und Lighting und Contrast changes

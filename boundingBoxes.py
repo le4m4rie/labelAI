@@ -95,7 +95,7 @@ def get_FP(neg_file):
     return int(false_positive_count), int(total)
 
 
-def get_metrics(test_pos_file, predictions_file, threshold):
+def get_TP_FN(test_pos_file, predictions_file, threshold):
     """
     Function to calculate number of True Positive and False Negative predicitons.
 
@@ -177,10 +177,66 @@ def get_all_metrics(test_neg, test_pos, preds, thresh):
     fp_percentage = round(fp / totalfalse, 2)
     get_predictions(test_pos, preds)
     remove_brackets(preds, 'preds_no_brackets.txt')
-    tp, fn, totaltrue = get_metrics(test_pos, 'preds_no_brackets.txt', thresh)
+    tp, fn, totaltrue = get_TP_FN(test_pos, 'preds_no_brackets.txt', thresh)
     tp_percentage = round(tp / totaltrue, 2)
     fn_percentage = round(fn / totaltrue, 2)
     print(' FP: ' + str(fp_percentage) + ' TP: ' + str(tp_percentage) + ' FN: ' + str(fn_percentage))
 
 
 #get_all_metrics('training/test/test_neg.txt', 'training/test/test_pos_single_instances.txt', 'preds.txt', 0.4)
+
+def show_gt_and_pred(pos):
+    detector = Detector()
+    with open(pos, 'r') as file:
+        for line in file:
+            values = line.strip().split()
+            img_path = values[0]
+            gt_box = values[2:]
+    
+            img = cv.imread(img_path)
+
+            pred_boxes = detector.detect_label(img)
+            if len(pred_boxes) > 0:
+                pred_box, conf = detector.get_highest_confidence_object(img)
+
+                gt_box = [int(coord) for coord in gt_box]
+                pred_box = [int(coord) for coord in pred_box]
+
+                x = int(pred_box[0])
+                y = int(pred_box[1])
+                xmax = x + int(pred_box[2])
+                ymax = y + int(pred_box[3])
+                cv.rectangle(img, (x, y), (xmax, ymax), (128, 0, 128), 2)
+
+                xgt = int(gt_box[0])
+                ygt = int(gt_box[1])
+                xmaxgt = xgt + int(gt_box[2])
+                ymaxgt = ygt + int(gt_box[3])
+                cv.rectangle(img, (xgt, ygt), (xmaxgt, ymaxgt), (0, 255, 0), 2)
+
+                conf = round(conf, 2)
+                text = str(conf)
+
+                text_x = xmax 
+                text_y = ymax
+
+                cv.putText(img, text, (text_x, text_y), cv.FONT_HERSHEY_SIMPLEX, 0.5, (128, 0, 128), 2)
+
+                cv.imshow('Predicted in purple and ground truth in green', img)
+                cv.waitKey(0)
+                cv.destroyAllWindows
+            else:
+                gt_box = [int(coord) for coord in gt_box]
+
+                xgt = int(gt_box[0])
+                ygt = int(gt_box[1])
+                xmaxgt = xgt + int(gt_box[2])
+                ymaxgt = ygt + int(gt_box[3])
+                cv.rectangle(img, (xgt, ygt), (xmaxgt, ymaxgt), (0, 255, 0), 2)
+
+                cv.imshow('Predicted in purple and ground truth in green', img)
+                cv.waitKey(0)
+                cv.destroyAllWindows
+
+
+show_gt_and_pred('training/test/test_pos_single_instances.txt')

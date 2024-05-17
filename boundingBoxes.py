@@ -80,11 +80,11 @@ def get_FP(neg_file):
     false_positive_count (int) 
     """
     false_positive_count = 0
-
+    total = 0
     detector = Detector()
     with open(neg_file, 'r') as file:
-        total = len(file.readlines())
         for line in file:
+            total += 1
             values = line.strip().split()
             img_path = values[0]
             img = cv.imread(img_path, cv.IMREAD_GRAYSCALE)
@@ -92,7 +92,7 @@ def get_FP(neg_file):
             if len(objects) > 0:
                 false_positive_count += 1
 
-    return false_positive_count, total
+    return int(false_positive_count), int(total)
 
 
 def get_metrics(test_pos_file, predictions_file, threshold):
@@ -108,10 +108,11 @@ def get_metrics(test_pos_file, predictions_file, threshold):
     true_positive_count -- TP (int)
     false_negative_count -- FN (int) 
     """
+    total = 0
     with open(test_pos_file, 'r') as file:
-        total = len(file.readlines())
         ground_truth = []
         for line in file:
+            total += 1
             values = line.strip().split()
             box = values[2:]
             ground_truth.append(box)
@@ -126,14 +127,17 @@ def get_metrics(test_pos_file, predictions_file, threshold):
         gt_box = [int(coord) for coord in gt_box]
         pred_box = [int(coord) for coord in pred_box]
 
-        iou_score = calculate_iou(gt_box, pred_box)
-
-        if iou_score > threshold:
-            true_positive_count += 1
-        else:
+        if len(pred_box) == 1:
             false_negative_count += 1
+        else:
+            iou_score = calculate_iou(gt_box, pred_box)
+
+            if iou_score > threshold:
+                true_positive_count += 1
+            else:
+                false_negative_count += 1
     
-    return true_positive_count, false_negative_count, total
+    return int(true_positive_count), int(false_negative_count), int(total)
 
 
 def remove_brackets(predictions_file, new_file):
@@ -170,13 +174,13 @@ def get_all_metrics(test_neg, test_pos, preds, thresh):
     none
     """
     fp, totalfalse = get_FP(test_neg)
-    fp_percentage = fp/totalfalse
+    fp_percentage = round(fp / totalfalse, 2)
     get_predictions(test_pos, preds)
     remove_brackets(preds, 'preds_no_brackets.txt')
     tp, fn, totaltrue = get_metrics(test_pos, 'preds_no_brackets.txt', thresh)
-    tp_percentage = tp/totaltrue
-    fn_percentage = fn/totaltrue
+    tp_percentage = round(tp / totaltrue, 2)
+    fn_percentage = round(fn / totaltrue, 2)
     print(' FP: ' + str(fp_percentage) + ' TP: ' + str(tp_percentage) + ' FN: ' + str(fn_percentage))
 
 
-get_all_metrics('training/test/test_neg.txt', 'training/test/test_pos_single_instances.txt', 'preds.txt', 0.5)
+#get_all_metrics('training/test/test_neg.txt', 'training/test/test_pos_single_instances.txt', 'preds.txt', 0.4)

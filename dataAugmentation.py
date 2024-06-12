@@ -4,6 +4,12 @@ import numpy as np
 import random
 import os
 import re
+import matplotlib.pyplot as plt
+
+######################################################################
+# This file contains functions for any kind of data transformations. #
+######################################################################
+
 
 #https://stackoverflow.com/questions/16702966/rotate-image-and-crop-out-black-borders
 def rotate_image(image, angle):
@@ -134,97 +140,72 @@ def crop_around_center(image, width, height):
     return image[y1:y2, x1:x2]
 
 
-def demo():
-    """
-    Demos the largest_rotated_rect function
-    """
-
-    image = cv2.imread("etiketten/2.png")
-    image_height, image_width = image.shape[0:2]
-
-    cv2.imshow("Original Image", image)
-
-    print('Press [enter] to begin the demo')
-    print ('Press [q] or Escape to quit')
-
-    key = cv2.waitKey(0)
-    if key == ord("q") or key == 27:
-        exit()
-
-    for i in np.arange(0, 360, 0.5):
-        image_orig = np.copy(image)
-        image_rotated = rotate_image(image, i)
-        image_rotated_cropped = crop_around_center(
-            image_rotated,
-            *largest_rotated_rect(
-                image_width,
-                image_height,
-                math.radians(i)
-            )
-        )
-
-        key = cv2.waitKey(2)
-        if(key == ord("q") or key == 27):
-            exit()
-
-        cv2.imshow("Original Image", image_orig)
-        cv2.imshow("Rotated Image", image_rotated)
-        cv2.imshow("Cropped Image", image_rotated_cropped)
-
-
-def horizontal_flip(image, x, width):
+def random_lighting(image, brightness_range=(-10, 50)):
    """
-   Flips image horizontally and changes bounding box accordingly.
+   Changes brightness of an image within certain range.
 
-   Keyword arguments:
-   image -- openCV image object
-   x -- the x-coordinate of the bbox
-   width -- the width of the bbox
+   Parameters:
+   image: openCV image object
+   brigthness_range: range of random brightness level (DEFAULT -30, 80)
+   contrast_range: range of random contrast level (DEFAULT 0.2, 1.5)
 
-   Return values:
-   flipped_image -- the flipped image
-   new_x -- new x-ccordinate of the bbox
-   """
-   flipped_image = cv2.flip(image, 1)
-   image_width = image.shape[1]
-   new_x = image_width - (x + width)
-   return flipped_image, new_x
-
-
-def random_lighting(image, brightness_range=(-10, 50), contrast_range=(0.2, 1.5)):
-   """
-   Changes brightness and contrast of an image within certain ranges.
-
-   Keyword arguments:
-   image -- openCV image object
-   brigthness_range -- range of random brightness level (DEFAULT -30, 80)
-   contrast_range -- range of random contrast level (DEFAULT 0.2, 1.5)
-
-   Return variables:
-   image -- openCV image object with adjusted brightness and contrast
+   Returns:
+   image: openCV image object with adjusted brightness and contrast
    """
    image = image.astype(np.float32)
    brightness = np.random.uniform(brightness_range[0], brightness_range[1])
    image += brightness
-   contrast = np.random.uniform(contrast_range[0], contrast_range[1])
-   image *= contrast
    image = np.clip(image, 0, 255)
    image = image.astype(np.uint8)
    return image
+
+
+def random_contrast(image, contrast_range=(0.2, 2)):
+    """
+    Changes contrast of image within certain range.
+
+    Parameters
+    image: openCV image object
+    contrast_range: range of random contrast level (DEFAULT 0.2, 2)
+
+    Returns:
+    image: the transformed image
+    """
+    image = image.astype(np.float32)
+    contrast = np.random.uniform(contrast_range[0], contrast_range[1])
+    image *= contrast
+    image = np.clip(image, 0, 255)
+    image = image.astype(np.uint8)
+    return image
+
+
+def add_gaussian_noise(image, mean=0, std=25):
+    """
+    Adds noise to image.
+
+    Parameters:
+    image: openCV image object
+    
+    Returns:
+    noisy_image: the transformed image
+    """
+    noise = np.random.normal(mean, std, image.shape).astype(np.uint8)
+    noisy_image = cv2.add(image, noise)
+    return noisy_image
 
 
 def save_image(image, output_dir, image_name, append):
    """
    Function to make up new image name and save image to given folder.
 
-   Keyword arguments:
-   image -- openCV image object
-   output_dir -- path of output folder
-   image_name -- original image name
-   append -- appendix for new image name
+   Parameters:
+   image: openCV image object
+   output_dir: path of output folder
+   image_name: original image name
+   append: appendix for new image name
 
-   Return variables:
-   final_new_path -- path of the image
+   Returns:
+   final_new_path: path of the image
    """
    os.makedirs(output_dir, exist_ok=True)
    removed_ending = re.sub(r'\.jpe?g$', '', image_name, flags=re.IGNORECASE)
@@ -235,15 +216,39 @@ def save_image(image, output_dir, image_name, append):
    return final_new_path
 
 
-def transform_images(annotation_file, transforms_file):
+def save_negative_image(image, output_dir, image_name, append):
+   """
+   Function to make up new image name and save image to folder for negative images.
+
+   Parameters:
+   image: openCV image object
+   output_dir: path of output folder
+   image_name: original image name
+   append: appendix for new image name
+
+   Returns:
+   final_new_path: path of the image
+   """
+   os.makedirs(output_dir, exist_ok=True)
+   removed_ending = re.sub(r'\.jpe?g$', '', image_name, flags=re.IGNORECASE)
+   removed_old_path = re.sub(r'negative/', '', removed_ending)
+   new_name = removed_old_path + append + '.jpg'
+   final_new_path = os.path.join(output_dir, new_name)
+   cv2.imwrite(final_new_path, image)
+   return final_new_path
+
+
+def transform_images(annotation_file, transforms_file, folder_name):
     """
     Function to perform transformations to already annotated images.
+    Before calling function: creade folder transformed_images.
 
-    Keyword arguments:
-    annotation_file -- .txt file of annotations
-    transforms_file -- .txt file where transformed image paths and bboxes get written to
+    Parameters:
+    annotation_file: .txt file of annotations
+    transforms_file: .txt file where transformed image paths and bboxes get written to
+    folder_name: folder name to write transformed images to
 
-    Return values:
+    Returns:
     none
     """
     with open(annotation_file, 'r') as file:
@@ -261,19 +266,100 @@ def transform_images(annotation_file, transforms_file):
             width = int(width)
             image = cv2.imread(image_path)
 
-            rotated_image = rotate_image(image, random.uniform(5, 15))
+            rotated_image = rotate_image(image, random.uniform(5, 10))
             lit_image = random_lighting(image)
+            contrasted_image = random_contrast(image)
+            noisy_image = add_gaussian_noise(image)
             
-            normal_path = save_image(image, 'transformed_images', image_path, 'normal')
-            rotated_path = save_image(rotated_image, 'transformed_images', image_path, 'rotated')
-            lit_path = save_image(lit_image, 'transformed_images', image_path, 'lit')
+            normal_path = save_image(image, folder_name, image_path, 'normal')
+            rotated_path = save_image(rotated_image, folder_name, image_path, 'rotated')
+            lit_path = save_image(lit_image, folder_name, image_path, 'lit')
+            contrasted_path = save_image(contrasted_image, folder_name, image_path, 'contrasted')
+            noisy_path = save_image(noisy_image, folder_name, image_path, 'noisy')
 
             output.write(f"{normal_path} 1 {x} {y} {width} {height}\n")
             output.write(f"{rotated_path} 1 {x} {y} {width} {height}\n")
             output.write(f"{lit_path} 1 {x} {y} {width} {height}\n")
+            output.write(f"{contrasted_path} 1 {x} {y} {width} {height}\n")
+            output.write(f"{noisy_path} 1 {x} {y} {width} {height}\n")
 
 
-transform_images('training/train/train_pos.txt', 'transformations.txt')
+def transform_negative_images(annotation_file, transforms_file):
+    """
+    Function to perform transformations to already annotated images.
+    Before calling function: creade folder transformed_images_negative.
+
+    Parameters:
+    annotation_file: .txt file of annotations
+    transforms_file: .txt file where transformed image paths and bboxes get written to
+    folder_name: folder name to write transformed images to
+
+    Returns:
+    none
+    """
+    with open(annotation_file, 'r') as file:
+        lines = file.readlines()
+
+    with open(transforms_file, 'w') as output:
+        for line in lines:
+            values = line.strip().split()
+            image_path = values[0]
+            image = cv2.imread(image_path)
+            if image is not None:
+                rotated_image = rotate_image(image, random.uniform(5, 10))
+                lit_image = random_lighting(image)
+                contrasted_image = random_contrast(image)
+                noisy_image = add_gaussian_noise(image)
+                    
+                normal_path = save_negative_image(image, 'transformed_images_negative', image_path, 'normal')
+                rotated_path = save_negative_image(rotated_image, 'transformed_images_negative', image_path, 'rotated')
+                lit_path = save_negative_image(lit_image, 'transformed_images_negative', image_path, 'lit')
+                contrasted_path = save_negative_image(contrasted_image, 'transformed_images_negative', image_path, 'contrasted')
+                noisy_path = save_negative_image(noisy_image, 'transformed_images_negative', image_path, 'noisy')
+
+                output.write(f"{normal_path}\n")
+                output.write(f"{rotated_path}\n")
+                output.write(f"{lit_path}\n")
+                output.write(f"{contrasted_path}\n")
+                output.write(f"{noisy_path}\n")
+            else:
+                print('Failed to read image')
 
 
+def randomly_rotate_test_set(annotation_file, transforms_file):
+    """
+    Rotating test images to test detection performance on rotated images.
+
+    Parameters:
+    annotation_file: .txt file of test images
+    transforms_file: .txt file to write path of transformed images 
+
+    Returns:
+    none
+    """
+
+    with open(annotation_file, 'r') as file:
+        lines = file.readlines()
+
+    with open(transforms_file, 'w') as output:
+        for line in lines:
+            values = line.strip().split()
+            image_path = values[0]
+            image = cv2.imread(image_path)
+            if image is not None:
+                image_height, image_width = image.shape[0:2]
+                rotation_degree = random.randint(-180, 180)
+                image_rotated = rotate_image(image, rotation_degree)
+                image_rotated_cropped = crop_around_center(
+                image_rotated,
+                *largest_rotated_rect(
+                image_width,
+                image_height,
+                math.radians(rotation_degree)
+                    )
+                )
+                rotated_path = save_image(image_rotated_cropped, 'test_images_rotated', image_path, 'rotated')
+                output.write(f"{rotated_path}\n")
+            else:
+                print('Failed to load image')
 

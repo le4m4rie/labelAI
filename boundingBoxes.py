@@ -1,5 +1,6 @@
 import numpy as np
 import cv2 as cv
+import matplotlib.pyplot as plt
 from Detector import Detector
 import re
 
@@ -8,10 +9,10 @@ def calculate_iou(bbox1, bbox2):
    """
    Function to calculate Intersection Over Union of two bounding boxes.
 
-   Keyword arguments:
-   bbox1, bbox2 -- arrays of box coordinates as x, y, width height.
+   Parameters:
+   bbox1, bbox2: arrays of box coordinates as x, y, width height.
 
-   Return varialbes
+   Returns:
    iou (int)
    """
    x1 = bbox1[0]
@@ -41,15 +42,52 @@ def calculate_iou(bbox1, bbox2):
    return iou
 
 
+def nms_vs_highest_confidence(pos):
+    """
+    Tests if it is necessary to use NMS by comparing the resulting box of NMS with the highest confidence box of the detector.
+
+    Parameters:
+    pos: The positive test file.
+
+    Returns:
+    none
+    """
+    detector = Detector()
+    num_same_boxes = 0
+    objects_total = 0
+    with open(pos, 'r') as file:
+        for line in file:
+            objects_total += 1
+            values = line.strip().split()
+            img_path = values[0]
+            img = cv.imread(img_path, cv.IMREAD_GRAYSCALE)
+            objects, confidences = detector.detect_labels_with_weights(img)
+            if len(objects) == 0:
+                indices = cv.dnn.NMSBoxes(objects, confidences, 0.0, 0.5)
+                idx = indices[0]
+                nms_box = objects[idx]
+                highest_confidence_box = detector.get_highest_confidence_object(img)
+
+                nms_box = [int(coord) for coord in nms_box]
+                highest_confidence_box = [int(coord) for coord in highest_confidence_box] 
+
+                for i in nms_box, highest_confidence_box:
+                    if nms_box[i] == highest_confidence_box[i]:
+                        num_same_boxes += 1 
+
+    print('Ratio of same boxes: ' + num_same_boxes / objects_total)
+
+
+
 def get_predictions(pos_file, output_file):
    """
    Function to get predicted bounding boxes from test dataset.
 
-   Keyword arguments:
-   pos_file -- .txt file of positive test images
-   output_file -- predictions get written to new .txt file
+   Parameters:
+   pos_file: .txt file of positive test images
+   output_file: predictions get written to new .txt file
 
-   Return variables:
+   Returns:
    none
    """
    detector = Detector()
@@ -73,10 +111,10 @@ def get_FP(neg_file):
     """
     Function to get number of False Positive predictions.
 
-    Keyword arguments:
-    neg_file -- .txt file of negative images
+    Parameters:
+    neg_file: .txt file of negative images
 
-    Return varialbes:
+    Returns:
     false_positive_count (int) 
     """
     false_positive_count = 0
@@ -99,14 +137,14 @@ def get_TP_FN(test_pos_file, predictions_file, threshold):
     """
     Function to calculate number of True Positive and False Negative predicitons.
 
-    Keyword arguments:
-    test_pos_file -- path to the positive .txt test file
-    predictions_file -- path to model predicitions .txt file
-    threshold -- to calculate IoU
+    Parameters:
+    test_pos_file: path to the positive .txt test file
+    predictions_file: path to model predicitions .txt file
+    threshold: to calculate IoU
 
-    Return variables:
-    true_positive_count -- TP (int)
-    false_negative_count -- FN (int) 
+    Returns:
+    true_positive_count: TP (int)
+    false_negative_count: FN (int) 
     """
     total = 0
     with open(test_pos_file, 'r') as file:
@@ -144,11 +182,11 @@ def remove_brackets(predictions_file, new_file):
     """
     Function to remove unwanted brackets in predicitions file.
 
-    Keyword arguments:
-    predictions_file -- .txt file of model predictions
-    new_file -- new .txt file to be written to
+    Parameters:
+    predictions_file: .txt file of model predictions
+    new_file: new .txt file to be written to
 
-    Return variables:
+    Returns:
     none
     """
     with open(predictions_file, 'r') as file:
@@ -164,13 +202,13 @@ def get_all_metrics(test_neg, test_pos, preds, thresh):
     """
     Calculating FP, TP, FN.
 
-    Keyword arguments:
-    test_neg -- the negative test file
-    test_pos -- the positive test file
-    preds -- name of the txt file the predictions get saved to
-    thresh -- threshod for iou
+    Parameters:
+    test_neg: the negative test file
+    test_pos: the positive test file
+    preds: name of the txt file the predictions get saved to
+    thresh: threshod for iou
 
-    Return variables:
+    Returns:
     none
     """
     fp, totalfalse = get_FP(test_neg)
@@ -183,9 +221,19 @@ def get_all_metrics(test_neg, test_pos, preds, thresh):
     print(' FP: ' + str(fp_percentage) + ' TP: ' + str(tp_percentage) + ' FN: ' + str(fn_percentage))
 
 
-#get_all_metrics('training/test/test_neg.txt', 'training/test/test_pos_single_instances.txt', 'preds.txt', 0.4)
+#get_all_metrics('training/test/test_neg.txt', 'training/test/test_pos_single_instances.txt', 'preds.txt', 0.6)
+
 
 def show_gt_and_pred(pos):
+    """
+    Visualizing ground truth and predicted bounding boxes for the test data set.
+
+    Parameters:
+    pos: test file
+
+    Returns:
+    None    
+    """
     detector = Detector()
     with open(pos, 'r') as file:
         for line in file:
@@ -239,4 +287,4 @@ def show_gt_and_pred(pos):
                 cv.destroyAllWindows
 
 
-show_gt_and_pred('training/test/test_pos_single_instances.txt')
+

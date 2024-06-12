@@ -3,18 +3,18 @@ import numpy as np
 
 class Detector:
    def __init__(self):
-      self.model = cv.CascadeClassifier('model/cascade190424.xml')
+      self.model = cv.CascadeClassifier('model/cascade020624.xml')
 
 
    def detect_label(self, img):
       """
       Calls the openCV cascade detect function.
 
-      Keyword arguments:
-      img -- an openCV image object
+      Parameters:
+      img: an openCV image object
 
-      Return variables:
-      objects -- array of bounding boxes with coordinades x, y, width, height
+      Returns:
+      objects: array of bounding boxes with coordinades x, y, width, height
       """
       objects = self.model.detectMultiScale(img, scaleFactor=1.05, minNeighbors=6, minSize=(100,50))
       return objects
@@ -24,11 +24,11 @@ class Detector:
       """
       Display the detected objects.
 
-      Keyword arguments:
-      path -- path to the image 
-      rescaleFactor -- in case image is too big (DEFAULT 1)
+      Parameters:
+      path: path to the image 
+      rescaleFactor: in case image is too big (DEFAULT 1)
 
-      Return variables:
+      Returns:
       none
       """
       image = cv.imread(path, cv.IMREAD_GRAYSCALE)
@@ -50,12 +50,12 @@ class Detector:
       """
       Function for getting confidence levels of the detections.
 
-      Keyword arguments:
-      img -- an openCV image object
+      Parameters:
+      img: an openCV image object
 
-      Return variables:
-      objects -- array of bounding boxes with coordinades x, y, width, height
-      level_weights -- the confidence of the detection
+      Returns:
+      objects: array of bounding boxes with coordinades x, y, width, height
+      level_weights: the confidence of the detection
       """
       objects, reject_levels, level_weights = self.model.detectMultiScale3(img,scaleFactor=1.05,minNeighbors=6,minSize=(100, 50),outputRejectLevels=True)
       return objects, level_weights
@@ -65,11 +65,11 @@ class Detector:
       """
       Out of all detected objects, only returns object with highest confidence.
 
-      Keyword arguments:
-      img -- openCV image object
+      Parameters:
+      img: openCV image object
 
-      Return variables:
-      object_with_highest_confidence -- bounding box with highest confidence score
+      Returns:
+      object_with_highest_confidence: bounding box with highest confidence score
       """
       objects, weights = self.detect_labels_with_weights(img)
       max_index = np.argmax(weights)
@@ -83,10 +83,10 @@ class Detector:
       """
       Displays highest confidence box.
 
-      Keyword arguments:
-      img -- openCV image object
+      Parameters:
+      img: openCV image object
 
-      Return variables:
+      Returns:
       none
       """
       box , confidence = self.get_highest_confidence_object(img)
@@ -106,7 +106,3 @@ class Detector:
       cv.imshow('final box', img)
       cv.waitKey(0)
 
-
-detector = Detector()
-img = cv.imread('etiketten/4.png')
-detector.show_highest_confidence_object(img)

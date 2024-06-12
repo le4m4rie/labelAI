@@ -1,12 +1,12 @@
 import cv2 as cv
 import numpy as np
-#from EasyReader import EasyReader
+from EasyReader import EasyReader
 
-img = cv.imread('etiketten/17.png')
-#easyReader = EasyReader()
+###################################################
+# Testing different preprocessing methods for OCR #
+###################################################
 
-
-# 01 Inverted Images
+#01 Inverted Images
 def invert(image):
     image = cv.bitwise_not(image)
     return image
@@ -152,6 +152,7 @@ def show_contour(image):
     cv.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 2)
     cv.imshow('Image', image)
     cv.waitKey(0)
+
 
 
 

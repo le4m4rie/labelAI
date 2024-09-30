@@ -1,0 +1,59 @@
+
+model            description                    w     h    numPos  numNeg  numStages maxFalseAlarmRate minHitRate TPR  FPR  
+cascade190424    base model trained             50    30   700     1600    6         0.3               0.995      0.53 0.80
+                 with all non-augmented
+                 data available and basic/
+                 random parameter settings
+
+cascade170524    augmented data to have         50    30   1600    1600    12        0.3               0.995      0.63 0.65
+                 same positive as negative
+                 training samples
+
+cascase250524    double the amount of           50    30   3200    1600    12        0.3               0.995      0.67 0.60
+                 positive samples 
+
+cascade020624    same positive and negative
+                 training samples but more data 50    30   3200    3200    15        0.3               0.995      0.86 0.28
+
+
+
+Dataset without rotations 
+-----------------------------------------------------------------------------------------------------------------------------
+cascade120724    model trained with optimized   50    30   3200    5000    9         0.2               0.995      0.53  0.73
+                 parameters !NEW TEST SET! 
+
+cascade180724    model trained without optimized           3200    6400    10        0.3               0.995          
+                 parameters, just double the amount
+                 of negative data compared to the model
+                 before optimization
+
+cascade260724    same amount of data just more             4500    4500    11        0.3               0.995  
+----------------------------------------------------------------------------------------------------------------------------  
+
+
+
+cascade050824    again no rotated dataset
+                 but with optimized parameters  50    30   3200    5000    8         0.2               0.995     0.65  0.67    
+
+cascade090824    1:1 split no optimized parameters         4500    4500    10        0.3               0.995      
+
+cascade0908242   more stages                               4500    4500    12        0.3               0.995     0.83  0.45
+
+cascade0908243   more stages                                               13        0.3               0.995     0.86  0.31
+
+cascade0908244   more stages                                               14        0.3               0.995     0.89  0.20
+
+cascade0908245   more stages                                               15        0.3               0.995     0.89  0.11
+
+cascade030924    non rotated dataset tested on             3200     3200   15        0.3               0.995     0.86  0.17
+                 rotated datas
+                                                                                          rotation detection     0.89  0.35
+
+old test set: 407 negative test images - 7 that can't be read = 400
+              193 positive test images 
+
+new test set: 406 negative test images
+              186 positive test images
+
+
+opencv_traincascade.exe -data cascade/ -vec pos.vec -bg transformed_neg.txt -w 50 -h 30 -numPos 4500 -numNeg 4500 -numStages 13 -maxFalseAlarmRate 0.3

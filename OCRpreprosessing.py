@@ -7,8 +7,11 @@ from EasyReader import EasyReader
 ###################################################
 
 #01 Inverted Images
-def invert(image):
+def invert_and_binarize(image):
     image = cv.bitwise_not(image)
+    gray = cv.cvtColor(image, cv.COLOR_BGR2GRAY)
+    thresh, im_bw = cv.threshold(gray, 170, 250, cv.THRESH_BINARY)
+    image = im_bw
     return image
 
 
@@ -45,6 +48,19 @@ def thicker_font(image):
     image = cv.dilate(image, kernel, iterations=1)
     image = cv.bitwise_not(image)
     return image
+
+#Sharpening
+def sharpen_image(image):
+    kernel = np.array([[-1,-1,-1],
+                [-1,9,-1],
+                [-1,-1,-1]])
+    sharpened_image = cv.filter2D(image, -1, kernel)
+    return sharpened_image
+
+#Bilateral Filter
+def bilateral_filter(image):
+    blurred_image = cv.bilateralFilter(image, 9, 75, 75)
+    return blurred_image
 
 #06 Rotation / Deskewing
 #https://becominghuman.ai/how-to-automatically-deskew-straighten-a-text-image-using-opencv-a0c30aed83df
@@ -99,21 +115,29 @@ def deskew(cvImage):
 
 
 def display_all(image):
-    image = cv.resize(image, (300, 300))
-    inverted_image = invert(image)
-    binarized_image = binarize(image)
-    binarized_image = cv.cvtColor(binarized_image, cv.COLOR_GRAY2BGR)
-    no_noise = noise_removal(image)
-    thin_font = thinner_font(no_noise)
-    thick_font = thicker_font(no_noise)
+    inverted_image = invert_and_binarize(image)
+    thin_font = thinner_font(image)
+    thick_font = thicker_font(image)
+    sharp = sharpen_image(image)
+    blurred = bilateral_filter(image)
 
-    row1 = np.concatenate((image, inverted_image, binarized_image), axis=1)
-    row2 = np.concatenate((no_noise, thin_font, thick_font), axis=1)
+    #row1 = np.concatenate((image, inverted_image, thin_font), axis=1)
+    #row2 = np.concatenate((thick_font, sharp, blurred), axis=1)
 
-    composite_image = np.concatenate((row1, row2), axis=0)
+    #composite_image = np.concatenate((row1, row2), axis=0)
 
-    cv.imshow('Multiple Images', composite_image)
-    cv.waitKey(0)
+    cv.imwrite('original.jpg', image)
+    cv.imwrite('inverted.jpg', inverted_image)
+    cv.imwrite('thin.jpg', thin_font)
+    cv.imwrite('thick.jpg', thick_font)
+    cv.imwrite('sharp.jpg', sharp)
+    cv.imwrite('blurred.jpg', blurred)
+    #cv.imshow('Multiple Images', composite_image)
+    #cv.waitKey(0)
+
+
+img = cv.imread('etiketten/3.jpg')
+display_all(img)
 
 
 def read(image):

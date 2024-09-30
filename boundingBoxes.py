@@ -2,7 +2,9 @@ import numpy as np
 import cv2 as cv
 import matplotlib.pyplot as plt
 from Detector import Detector
+from LabelBot import LabelBot
 import re
+from PIL import Image
 
 
 def calculate_iou(bbox1, bbox2):
@@ -10,7 +12,7 @@ def calculate_iou(bbox1, bbox2):
    Function to calculate Intersection Over Union of two bounding boxes.
 
    Parameters:
-   bbox1, bbox2: arrays of box coordinates as x, y, width height.
+   bbox1, bbox2: Arrays of box coordinates as x, y, width height.
 
    Returns:
    iou (int)
@@ -52,17 +54,17 @@ def nms_vs_highest_confidence(pos):
     Returns:
     none
     """
-    detector = Detector()
+    detector = Detector('model/cascade090824.xml')
     num_same_boxes = 0
     objects_total = 0
     with open(pos, 'r') as file:
         for line in file:
-            objects_total += 1
             values = line.strip().split()
             img_path = values[0]
             img = cv.imread(img_path, cv.IMREAD_GRAYSCALE)
             objects, confidences = detector.detect_labels_with_weights(img)
             if len(objects) == 0:
+                objects_total += 1
                 indices = cv.dnn.NMSBoxes(objects, confidences, 0.0, 0.5)
                 idx = indices[0]
                 nms_box = objects[idx]
@@ -75,22 +77,21 @@ def nms_vs_highest_confidence(pos):
                     if nms_box[i] == highest_confidence_box[i]:
                         num_same_boxes += 1 
 
-    print('Ratio of same boxes: ' + num_same_boxes / objects_total)
-
+    print('Ratio of same boxes: ' + str(num_same_boxes))
 
 
 def get_predictions(pos_file, output_file):
    """
-   Function to get predicted bounding boxes from test dataset.
+   Function to get predicted bounding boxes from positive test dataset.
 
    Parameters:
-   pos_file: .txt file of positive test images
-   output_file: predictions get written to new .txt file
+   pos_file: .txt file of positive test images.
+   output_file: Predictions get written to new .txt file.
 
    Returns:
    none
    """
-   detector = Detector()
+   detector = Detector('model/cascade020624.xml')
    with open(pos_file, 'r') as file:
       with open(output_file, 'w') as output:
         for line in file:
@@ -101,25 +102,46 @@ def get_predictions(pos_file, output_file):
             if len(objects) == 0:
                 output.write("0\n")  
             else:  
-                #find box with highest confidence
                 max_index = np.argmax(confidence)
                 object_with_highest_confidence = objects[max_index]
                 output.write(f"{object_with_highest_confidence}\n")
 
 
+def get_predictions_with_rotation(pos_file, output_file):
+   """
+   Function to get predicted bounding boxes from positive test dataset with the added rotation sequence.
+
+   Parameters:
+   pos_file: .txt file of positive test images.
+   output_file: Predictions get written to new .txt file.
+
+   Returns:
+   none
+   """
+   detector = LabelBot()
+   with open(pos_file, 'r') as file:
+      with open(output_file, 'w') as output:
+        for line in file:
+            values = line.strip().split()
+            img_path = values[0]
+            img = cv.imread(img_path, cv.IMREAD_GRAYSCALE)
+            box = detector.rotate_detect_bbox(img)
+            output.write(f"{box}\n")
+
+
 def get_FP(neg_file):
     """
-    Function to get number of False Positive predictions.
+    Function to get number of False Positive predictions from negative test images.
 
     Parameters:
-    neg_file: .txt file of negative images
+    neg_file: .txt file of negative images.
 
     Returns:
-    false_positive_count (int) 
+    false_positive_count: Number of false positive detections.
     """
     false_positive_count = 0
     total = 0
-    detector = Detector()
+    detector = Detector('model/cascade020624.xml')
     with open(neg_file, 'r') as file:
         for line in file:
             total += 1
@@ -133,20 +155,52 @@ def get_FP(neg_file):
     return int(false_positive_count), int(total)
 
 
-def get_TP_FN(test_pos_file, predictions_file, threshold):
+def get_FP_with_rotation(neg_file):
+    """
+    Function to get number of False Positive predictions from negative test images.
+
+    Parameters:
+    neg_file: .txt file of negative images.
+
+    Returns:
+    false_positive_count: Number of false positive detections.
+    """
+    false_positive_count = 0
+    total = 0
+    detector = LabelBot()
+    with open(neg_file, 'r') as file:
+        for line in file:
+            total += 1
+            values = line.strip().split()
+            img_path = values[0]
+            img = cv.imread(img_path, cv.IMREAD_GRAYSCALE)
+            box = detector.rotate_detect_bbox(img)
+            box = np.array(box)
+            if box.shape == ():
+                false_positive_count += 1
+
+    return int(false_positive_count), int(total)
+
+
+def get_TP_FP_FN(test_pos_file, predictions_file, threshold):
     """
     Function to calculate number of True Positive and False Negative predicitons.
 
     Parameters:
-    test_pos_file: path to the positive .txt test file
-    predictions_file: path to model predicitions .txt file
-    threshold: to calculate IoU
+    test_pos_file: Path to the positive .txt test file.
+    predictions_file: Path to model predicitions .txt file.
+    threshold: To calculate IoU.
 
     Returns:
-    true_positive_count: TP (int)
-    false_negative_count: FN (int) 
+    true_positive_count: Number of true positive detections.
+    false_negative_count: Number of false negative detections. 
     """
+
     total = 0
+    true_positive_count = 0
+    false_negative_count = 0
+    false_positive_count = 0
+
     with open(test_pos_file, 'r') as file:
         ground_truth = []
         for line in file:
@@ -158,9 +212,6 @@ def get_TP_FN(test_pos_file, predictions_file, threshold):
     with open(predictions_file, 'r') as file:
         predictions = [re.split(r'\s+', line.strip()) for line in file]
 
-    true_positive_count = 0
-    false_negative_count = 0
-
     for gt_box, pred_box in zip(ground_truth, predictions):
         gt_box = [int(coord) for coord in gt_box]
         pred_box = [int(coord) for coord in pred_box]
@@ -170,12 +221,12 @@ def get_TP_FN(test_pos_file, predictions_file, threshold):
         else:
             iou_score = calculate_iou(gt_box, pred_box)
 
-            if iou_score > threshold:
+            if iou_score >= threshold:
                 true_positive_count += 1
             else:
-                false_negative_count += 1
+                false_positive_count += 1
     
-    return int(true_positive_count), int(false_negative_count), int(total)
+    return int(true_positive_count), int(false_negative_count), int(false_positive_count), int(total)
 
 
 def remove_brackets(predictions_file, new_file):
@@ -183,8 +234,8 @@ def remove_brackets(predictions_file, new_file):
     Function to remove unwanted brackets in predicitions file.
 
     Parameters:
-    predictions_file: .txt file of model predictions
-    new_file: new .txt file to be written to
+    predictions_file: .txt file of model predictions.
+    new_file: new .txt file to be written to.
 
     Returns:
     none
@@ -203,25 +254,27 @@ def get_all_metrics(test_neg, test_pos, preds, thresh):
     Calculating FP, TP, FN.
 
     Parameters:
-    test_neg: the negative test file
-    test_pos: the positive test file
-    preds: name of the txt file the predictions get saved to
-    thresh: threshod for iou
+    test_neg: The negative test file.
+    test_pos: The positive test file.
+    preds: Name of the .txt file the predictions get saved to.
+    thresh: Threshold for IoU.
 
     Returns:
     none
     """
-    fp, totalfalse = get_FP(test_neg)
-    fp_percentage = round(fp / totalfalse, 2)
-    get_predictions(test_pos, preds)
+    total_neg = 400
+    total_pos = 193
+    fp_neg, _ = get_FP_with_rotation(test_neg)
+    get_predictions_with_rotation(test_pos, preds)
     remove_brackets(preds, 'preds_no_brackets.txt')
-    tp, fn, totaltrue = get_TP_FN(test_pos, 'preds_no_brackets.txt', thresh)
-    tp_percentage = round(tp / totaltrue, 2)
-    fn_percentage = round(fn / totaltrue, 2)
-    print(' FP: ' + str(fp_percentage) + ' TP: ' + str(tp_percentage) + ' FN: ' + str(fn_percentage))
+    tp, fn, fp, _ = get_TP_FP_FN(test_pos, 'preds_no_brackets.txt', thresh)
+    precision = tp / (tp + fp)
+    recall = tp / (tp + fn)
+    print(' TPR: ' + str(tp/total_pos) + ' FPR:' + str((fp_neg+fp)/(total_neg+total_pos)) + ' Precision: ' + str(precision) + ' Recall: ' + str(recall))
+    return fp, tp, fn
 
 
-#get_all_metrics('training/test/test_neg.txt', 'training/test/test_pos_single_instances.txt', 'preds.txt', 0.6)
+#get_all_metrics('training/test_old/test_neg.txt', 'training/test_old/test_pos_single_instances.txt', 'preds.txt', 0.5)
 
 
 def show_gt_and_pred(pos):
@@ -229,7 +282,7 @@ def show_gt_and_pred(pos):
     Visualizing ground truth and predicted bounding boxes for the test data set.
 
     Parameters:
-    pos: test file
+    pos: Test file.
 
     Returns:
     None    
@@ -285,6 +338,42 @@ def show_gt_and_pred(pos):
                 cv.imshow('Predicted in purple and ground truth in green', img)
                 cv.waitKey(0)
                 cv.destroyAllWindows
+
+
+def get_max_min_size(test_file):
+    """
+    Retrieves the biggest and smallest box from the test data.
+
+    Parameters:
+    test_file: The test file.
+
+    Returns:
+    none
+    """
+
+    boxes = []
+
+    with open(test_file, 'r') as file:
+        for line in file:
+            values = line.strip().split()
+            box = values[2:]
+            box = [int(coord) for coord in box]
+
+            width = box[2]
+            height = box[3]
+
+            boxes.append((width, height))
+
+        min_box = min(boxes, key=lambda box: box[0] * box[1])
+    
+        max_box = max(boxes, key=lambda box: box[0] * box[1])
+    
+
+    print('Min: ' + str(min_box))
+    print('Max:' + str(max_box))
+
+
+
 
 
 

@@ -6,10 +6,6 @@ import os
 import re
 import matplotlib.pyplot as plt
 
-######################################################################
-# This file contains functions for any kind of data transformations. #
-######################################################################
-
 
 #https://stackoverflow.com/questions/16702966/rotate-image-and-crop-out-black-borders
 def rotate_image(image, angle):
@@ -145,12 +141,12 @@ def random_lighting(image, brightness_range=(-10, 50)):
    Changes brightness of an image within certain range.
 
    Parameters:
-   image: openCV image object
-   brigthness_range: range of random brightness level (DEFAULT -30, 80)
-   contrast_range: range of random contrast level (DEFAULT 0.2, 1.5)
+   image: OpenCV image object.
+   brigthness_range: Range of random brightness level (DEFAULT -30, 80).
+   contrast_range: Range of random contrast level (DEFAULT 0.2, 1.5).
 
    Returns:
-   image: openCV image object with adjusted brightness and contrast
+   image: OpenCV image object with adjusted brightness and contrast.
    """
    image = image.astype(np.float32)
    brightness = np.random.uniform(brightness_range[0], brightness_range[1])
@@ -165,11 +161,11 @@ def random_contrast(image, contrast_range=(0.2, 2)):
     Changes contrast of image within certain range.
 
     Parameters
-    image: openCV image object
-    contrast_range: range of random contrast level (DEFAULT 0.2, 2)
+    image: OpenCV image object.
+    contrast_range: Range of random contrast level (DEFAULT 0.2, 2).
 
     Returns:
-    image: the transformed image
+    image: The transformed image.
     """
     image = image.astype(np.float32)
     contrast = np.random.uniform(contrast_range[0], contrast_range[1])
@@ -184,32 +180,74 @@ def add_gaussian_noise(image, mean=0, std=25):
     Adds noise to image.
 
     Parameters:
-    image: openCV image object
+    image: OpenCV image object.
     
     Returns:
-    noisy_image: the transformed image
+    noisy_image: The transformed image.
     """
     noise = np.random.normal(mean, std, image.shape).astype(np.uint8)
     noisy_image = cv2.add(image, noise)
     return noisy_image
 
 
+def add_saltpepper_noise(image):
+    """
+    Adds salt and pepper noise to image.
+
+    Parameters:
+    image: OpenCV image object.
+
+    Returns:
+    noisy_image: The transformed image.
+    """
+    amount = random.uniform(0.02, 0.1)
+    noisy_image = image.copy()
+    h, w, _ = noisy_image.shape
+    noisy_pixels = int(h * w * amount)
+ 
+    for _ in range(noisy_pixels):
+        row, col = np.random.randint(0, h), np.random.randint(0, w)
+        if np.random.rand() < 0.5:
+            noisy_image[row, col] = [0, 0, 0] 
+        else:
+            noisy_image[row, col] = [255, 255, 255]
+ 
+    return noisy_image
+
+
+def add_median_filter(image):
+    """
+    Blurs image with median filter.
+
+    Parameters:
+    image: OpenCV image object.
+
+    Returns:
+    median_filtered: The transformed image.
+    """
+    kernel_size = random.randint(3, 5)
+    if kernel_size % 2 == 0:
+        kernel_size += 1
+    median_filtered = cv2.medianBlur(image, kernel_size)
+    return median_filtered
+
+
 def save_image(image, output_dir, image_name, append):
    """
-   Function to make up new image name and save image to given folder.
+   Function to create new image name and save image to given folder.
 
    Parameters:
-   image: openCV image object
-   output_dir: path of output folder
-   image_name: original image name
-   append: appendix for new image name
+   image: OpenCV image object.
+   output_dir: Path of output folder.
+   image_name: Original image name.
+   append: Appendix for new image name.
 
    Returns:
-   final_new_path: path of the image
+   final_new_path: path of the image.
    """
    os.makedirs(output_dir, exist_ok=True)
    removed_ending = re.sub(r'\.jpe?g$', '', image_name, flags=re.IGNORECASE)
-   removed_old_path = re.sub(r'positive_resized/', '', removed_ending)
+   removed_old_path = re.sub(r'positive_resized_no_r/', '', removed_ending)
    new_name = removed_old_path + append + '.jpg'
    final_new_path = os.path.join(output_dir, new_name)
    cv2.imwrite(final_new_path, image)
@@ -218,16 +256,16 @@ def save_image(image, output_dir, image_name, append):
 
 def save_negative_image(image, output_dir, image_name, append):
    """
-   Function to make up new image name and save image to folder for negative images.
+   Function to create new image name and save image to folder for negative images.
 
    Parameters:
-   image: openCV image object
-   output_dir: path of output folder
-   image_name: original image name
-   append: appendix for new image name
+   image: OpenCV image object.
+   output_dir: Path of output folder.
+   image_name: Original image name.
+   append: Appendix for new image name.
 
    Returns:
-   final_new_path: path of the image
+   final_new_path: Path of the image.
    """
    os.makedirs(output_dir, exist_ok=True)
    removed_ending = re.sub(r'\.jpe?g$', '', image_name, flags=re.IGNORECASE)
@@ -244,9 +282,9 @@ def transform_images(annotation_file, transforms_file, folder_name):
     Before calling function: creade folder transformed_images.
 
     Parameters:
-    annotation_file: .txt file of annotations
-    transforms_file: .txt file where transformed image paths and bboxes get written to
-    folder_name: folder name to write transformed images to
+    annotation_file: .txt file of annotations.
+    transforms_file: .txt file where transformed image paths and bboxes get written to.
+    folder_name: Folder name to write transformed images to.
 
     Returns:
     none
@@ -270,23 +308,31 @@ def transform_images(annotation_file, transforms_file, folder_name):
             lit_image = random_lighting(image)
             contrasted_image = random_contrast(image)
             noisy_image = add_gaussian_noise(image)
+            blurred_image = add_median_filter(image)
+            sp_image = add_saltpepper_noise(image)
             
             normal_path = save_image(image, folder_name, image_path, 'normal')
             rotated_path = save_image(rotated_image, folder_name, image_path, 'rotated')
             lit_path = save_image(lit_image, folder_name, image_path, 'lit')
             contrasted_path = save_image(contrasted_image, folder_name, image_path, 'contrasted')
             noisy_path = save_image(noisy_image, folder_name, image_path, 'noisy')
+            blurred_path = save_image(blurred_image, folder_name, image_path, 'blurred')
+            sp_path = save_image(sp_image, folder_name, image_path, 'spnoise')
 
             output.write(f"{normal_path} 1 {x} {y} {width} {height}\n")
             output.write(f"{rotated_path} 1 {x} {y} {width} {height}\n")
             output.write(f"{lit_path} 1 {x} {y} {width} {height}\n")
             output.write(f"{contrasted_path} 1 {x} {y} {width} {height}\n")
             output.write(f"{noisy_path} 1 {x} {y} {width} {height}\n")
+            output.write(f"{blurred_path} 1 {x} {y} {width} {height}\n")
+            output.write(f"{sp_path} 1 {x} {y} {width} {height}\n")
 
+
+#transform_images('training/train/train_pos_fixed.txt', 'transformed_pos_fixed.txt', 'transformed_images_fixed')
 
 def transform_negative_images(annotation_file, transforms_file):
     """
-    Function to perform transformations to already annotated images.
+    Function to perform transformations to already annotated negative images.
     Before calling function: creade folder transformed_images_negative.
 
     Parameters:
@@ -320,46 +366,11 @@ def transform_negative_images(annotation_file, transforms_file):
                 output.write(f"{normal_path}\n")
                 output.write(f"{rotated_path}\n")
                 output.write(f"{lit_path}\n")
-                output.write(f"{contrasted_path}\n")
+                output.write(f"{contrasted_path}\n")#
                 output.write(f"{noisy_path}\n")
             else:
                 print('Failed to read image')
 
+#transform_negative_images('training/train_old/train_neg.txt', 'transformed_neg.txt')
 
-def randomly_rotate_test_set(annotation_file, transforms_file):
-    """
-    Rotating test images to test detection performance on rotated images.
-
-    Parameters:
-    annotation_file: .txt file of test images
-    transforms_file: .txt file to write path of transformed images 
-
-    Returns:
-    none
-    """
-
-    with open(annotation_file, 'r') as file:
-        lines = file.readlines()
-
-    with open(transforms_file, 'w') as output:
-        for line in lines:
-            values = line.strip().split()
-            image_path = values[0]
-            image = cv2.imread(image_path)
-            if image is not None:
-                image_height, image_width = image.shape[0:2]
-                rotation_degree = random.randint(-180, 180)
-                image_rotated = rotate_image(image, rotation_degree)
-                image_rotated_cropped = crop_around_center(
-                image_rotated,
-                *largest_rotated_rect(
-                image_width,
-                image_height,
-                math.radians(rotation_degree)
-                    )
-                )
-                rotated_path = save_image(image_rotated_cropped, 'test_images_rotated', image_path, 'rotated')
-                output.write(f"{rotated_path}\n")
-            else:
-                print('Failed to load image')
 
